@@ -25,8 +25,7 @@ partial class PopupPage : ContentPage, IQueryAttributable
 {
 	readonly Popup popup;
 	readonly IPopupOptions popupOptions;
-	readonly Command tapOutsideOfPopupCommand;
-	readonly Command backButtonPressCommand;
+	readonly Command dismissCommand;
 
 	public PopupPage(View view, IPopupOptions? popupOptions)
 		: this(view as Popup ?? CreatePopupFromView<Popup>(view), popupOptions)
@@ -41,19 +40,11 @@ partial class PopupPage : ContentPage, IQueryAttributable
 		this.popup = popup;
 		this.popupOptions = popupOptions ??= Options.DefaultPopupOptionsSettings;
 
-		tapOutsideOfPopupCommand = new Command(async () =>
+		dismissCommand = new Command(async () =>
 		{
-			popupOptions.OnTappingOutsideOfPopup?.Invoke();
 			popupOptions.OnDismiss?.Invoke();
 			await CloseAsync(new PopupResult(true));
-		}, () => GetCanBeDismissedByTappingOutsideOfPopup(popup, popupOptions));
-
-		backButtonPressCommand = new Command(async () =>
-		{
-			popupOptions.OnBackButtonPressed?.Invoke();
-			popupOptions.OnDismiss?.Invoke();
-			await CloseAsync(new PopupResult(true));
-		}, () => GetCanBeDismissedByBackButtonPressed(popup, popupOptions));
+		});
 
 		var pageTapGestureRecognizer = new TapGestureRecognizer();
 		pageTapGestureRecognizer.Tapped += HandleTapGestureRecognizerTapped;
@@ -62,12 +53,6 @@ partial class PopupPage : ContentPage, IQueryAttributable
 		{
 			GestureRecognizers = { pageTapGestureRecognizer }
 		};
-
-		popup.PropertyChanged += HandlePopupPropertyChanged;
-		if (popupOptions is BindableObject bindablePopupOptions)
-		{
-			bindablePopupOptions.PropertyChanged += HandlePopupOptionsPropertyChanged;
-		}
 
 		this.SetBinding(BindingContextProperty, static (Popup x) => x.BindingContext, source: popup, mode: BindingMode.OneWay);
 		this.SetBinding(BackgroundColorProperty, static (IPopupOptions options) => options.PageOverlayColor, source: popupOptions, mode: BindingMode.OneWay);
@@ -125,7 +110,6 @@ partial class PopupPage : ContentPage, IQueryAttributable
 	{
 		popup.NotifyPopupIsClosed();
 		base.Content.GestureRecognizers.Clear();
-		popup.PropertyChanged -= HandlePopupPropertyChanged;
 		base.OnNavigatedFrom(args);
 	}
 
@@ -160,24 +144,28 @@ partial class PopupPage : ContentPage, IQueryAttributable
 
 	internal bool TryExecuteTapOutsideOfPopupCommand()
 	{
-		if (!tapOutsideOfPopupCommand.CanExecute(null))
+		popupOptions.OnTappingOutsideOfPopup?.Invoke();
+
+		if (GetCanBeDismissedByTappingOutsideOfPopup(popup, popupOptions))
 		{
-			return false;
+			dismissCommand.Execute(null);
+			return true;
 		}
 
-		tapOutsideOfPopupCommand.Execute(null);
-		return true;
+		return false;
 	}
 
 	internal bool TryExecuteBackButtonPressCommand()
 	{
-		if (!backButtonPressCommand.CanExecute(null))
+		popupOptions.OnBackButtonPressed?.Invoke();
+
+		if (GetCanBeDismissedByBackButtonPressed(popup, popupOptions))
 		{
-			return false;
+			dismissCommand.Execute(null);
+			return true;
 		}
 
-		backButtonPressCommand.Execute(null);
-		return true;
+		return false;
 	}
 
 	// Only dismiss when a user taps outside Popup when **both** Popup.CanBeDismissedByTappingOutsideOfPopup and PopupOptions.CanBeDismissedByTappingOutsideOfPopup are true
@@ -187,30 +175,6 @@ partial class PopupPage : ContentPage, IQueryAttributable
 	// Only dismiss when a user presses a back button when **both** Popup.CanBeDismissedByBackButtonPressed and PopupOptions.CanBeDismissedByBackButtonPressed are true
 	// If either value is false, do not dismiss Popup
 	static bool GetCanBeDismissedByBackButtonPressed(in Popup popup, in IPopupOptions popupOptions) => popup.CanBeDismissedByBackButtonPressed & popupOptions.CanBeDismissedByBackButtonPressed;
-
-	void HandlePopupOptionsPropertyChanged(object? sender, PropertyChangedEventArgs e)
-	{
-		if (e.PropertyName == nameof(IPopupOptions.CanBeDismissedByTappingOutsideOfPopup))
-		{
-			tapOutsideOfPopupCommand.ChangeCanExecute();
-		}
-		if (e.PropertyName == nameof(IPopupOptions.CanBeDismissedByBackButtonPressed))
-		{
-			backButtonPressCommand.ChangeCanExecute();
-		}
-	}
-
-	void HandlePopupPropertyChanged(object? sender, PropertyChangedEventArgs e)
-	{
-		if (e.PropertyName == Popup.CanBeDismissedByTappingOutsideOfPopupProperty.PropertyName)
-		{
-			tapOutsideOfPopupCommand.ChangeCanExecute();
-		}
-		if (e.PropertyName == Popup.CanBeDismissedByTappingOutsideOfPopupProperty.PropertyName)
-		{
-			backButtonPressCommand.ChangeCanExecute();
-		}
-	}
 
 	void IQueryAttributable.ApplyQueryAttributes(IDictionary<string, object> query)
 	{
