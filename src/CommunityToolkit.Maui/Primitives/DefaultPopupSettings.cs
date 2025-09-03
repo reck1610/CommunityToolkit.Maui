@@ -22,6 +22,8 @@ public record DefaultPopupSettings
 
 	/// <inheritdoc cref="Views.Popup.CanBeDismissedByTappingOutsideOfPopup"/>
 	public bool CanBeDismissedByTappingOutsideOfPopup { get; init; } = PopupDefaults.CanBeDismissedByTappingOutsideOfPopup;
+	/// <inheritdoc cref="Views.Popup.CanBeDismissedByBackButtonPressed"/>
+	public bool CanBeDismissedByBackButtonPressed { get; init; } = PopupDefaults.CanBeDismissedByBackButtonPressed;
 
 	/// <inheritdoc cref="VisualElement.BackgroundColor"/>
 	public Color BackgroundColor { get; init; } = PopupDefaults.BackgroundColor;
@@ -60,5 +62,10 @@ public record DefaultPopupSettings
 		/// Default value for <see cref="Popup.CanBeDismissedByTappingOutsideOfPopup"/>
 		/// </summary>
 		public const bool CanBeDismissedByTappingOutsideOfPopup = true;
+
+		/// <summary>
+		/// Default value for <see cref="Popup.CanBeDismissedByBackButtonPressed"/>
+		/// </summary>
+		public const bool CanBeDismissedByBackButtonPressed = true;
 	}
 }
